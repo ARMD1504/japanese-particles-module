@@ -1216,7 +1216,8 @@ function Slide11() {
   const [round, setRound] = useState(0)
   const [score, setScore] = useState(0)
   const [timeLeft, setTimeLeft] = useState(20)
-  const [selected, setSelected] = useState<string | null>(null)
+  const [filledBlanks, setFilledBlanks] = useState<string[]>([])
+  const [activeBlank, setActiveBlank] = useState(0)
   const [showResult, setShowResult] = useState(false)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
@@ -1280,13 +1281,15 @@ function Slide11() {
   ]
 
   const currentRound = rounds[round]
+  const totalBlanks = currentRound.blanks.length
 
   const startGame = () => {
     setGameState('playing')
     setRound(0)
     setScore(0)
     setTimeLeft(20)
-    setSelected(null)
+    setFilledBlanks([])
+    setActiveBlank(0)
     setShowResult(false)
   }
 
@@ -1308,18 +1311,23 @@ function Slide11() {
     }
   }, [gameState, round, showResult])
 
-  const handleSelect = (option: string, blankIdx: number) => {
+  const handleSelect = (option: string) => {
     if (showResult) return
-    // For simplicity, handle single-blank rounds
-    if (currentRound.blanks.length === 1) {
-      setSelected(option)
+    const newFilled = [...filledBlanks, option]
+    setFilledBlanks(newFilled)
+
+    if (newFilled.length === totalBlanks) {
+      // All blanks filled — check answers
       setShowResult(true)
       if (timerRef.current) clearInterval(timerRef.current)
-      const isCorrect = option === currentRound.answers[0]
-      if (isCorrect) {
-        const timeBonus = Math.floor(timeLeft * 5)
-        setScore(score + 100 + timeBonus)
-      }
+      const correctCount = newFilled.filter((v, i) => v === currentRound.answers[i]).length
+      const allCorrect = correctCount === totalBlanks
+      const basePoints = correctCount * 100
+      const timeBonus = allCorrect ? Math.floor(timeLeft * 5) : 0
+      setScore(score + basePoints + timeBonus)
+    } else {
+      // Move to next blank
+      setActiveBlank(activeBlank + 1)
     }
   }
 
@@ -1327,7 +1335,8 @@ function Slide11() {
     if (round < rounds.length - 1) {
       setRound(round + 1)
       setTimeLeft(20)
-      setSelected(null)
+      setFilledBlanks([])
+      setActiveBlank(0)
       setShowResult(false)
     } else {
       setGameState('finished')
@@ -1335,11 +1344,12 @@ function Slide11() {
   }
 
   const getRating = () => {
-    const maxScore = rounds.length * 200 // 100 base + 100 max time bonus per round
+    const totalPossibleBlanks = rounds.reduce((sum, r) => sum + r.answers.length, 0)
+    const maxScore = totalPossibleBlanks * 100 + rounds.length * 100 // base + max time bonus
     const pct = score / maxScore
-    if (pct >= 0.85) return { title: 'Sensei', emoji: '🏆', desc: 'Master of particles! You can teach others.' }
-    if (pct >= 0.6) return { title: 'Senpai', emoji: '🥈', desc: 'Strong understanding. A few more rounds to perfection.' }
-    if (pct >= 0.35) return { title: 'Deshi', emoji: '📖', desc: 'Good start! Review the Particle Explorer and try again.' }
+    if (pct >= 0.75) return { title: 'Sensei', emoji: '🏆', desc: 'Master of particles! You can teach others.' }
+    if (pct >= 0.5) return { title: 'Senpai', emoji: '🥈', desc: 'Strong understanding. A few more rounds to perfection.' }
+    if (pct >= 0.25) return { title: 'Deshi', emoji: '📖', desc: 'Good start! Review the Particle Explorer and try again.' }
     return { title: 'Shoshinsha', emoji: '🌱', desc: 'Every journey starts with a single step. Try the scenarios first!' }
   }
 
@@ -1362,11 +1372,11 @@ function Slide11() {
           </div>
           <div className="dojo-rule">
             <span className="rule-icon">🎯</span>
-            <span>100 points per correct answer</span>
+            <span>100 points per correct blank</span>
           </div>
           <div className="dojo-rule">
             <span className="rule-icon">⚡</span>
-            <span>Speed bonus: +5 points per second remaining</span>
+            <span>Speed bonus if all blanks correct</span>
           </div>
           <div className="dojo-rule">
             <span className="rule-icon">📊</span>
@@ -1403,8 +1413,11 @@ function Slide11() {
     )
   }
 
-  // Playing state — for simplicity, only handle single-blank rounds fully
-  const isSingleBlank = currentRound.blanks.length === 1
+  // Playing state
+  const correctCount = showResult
+    ? filledBlanks.filter((v, i) => v === currentRound.answers[i]).length
+    : 0
+  const allCorrect = showResult && correctCount === totalBlanks
 
   return (
     <div className="slide slide-dojo">
@@ -1421,24 +1434,48 @@ function Slide11() {
         </span>
       </div>
       <div className="dojo-challenge">
-        <p className="dojo-english">"{currentRound.english}"</p>
+        <p className="dojo-english">{currentRound.english}</p>
         <p className="dojo-hint">Hint: {currentRound.hint}</p>
+        {totalBlanks > 1 && !showResult && (
+          <p className="dojo-blank-progress">
+            Blank {activeBlank + 1} of {totalBlanks}
+          </p>
+        )}
         <div className="dojo-sentence">
           {currentRound.parts.map((part, i) => {
             const blankIdx = currentRound.blanks.indexOf(i)
             if (blankIdx !== -1) {
-              if (isSingleBlank) {
+              // This position is a blank
+              if (blankIdx < filledBlanks.length) {
+                // Already filled
+                const isRight = showResult && filledBlanks[blankIdx] === currentRound.answers[blankIdx]
+                const isWrong = showResult && filledBlanks[blankIdx] !== currentRound.answers[blankIdx]
+                return (
+                  <span
+                    key={i}
+                    className={`dojo-blank dojo-blank-filled ${isRight ? 'filled-correct' : ''} ${isWrong ? 'filled-wrong' : ''}`}
+                  >
+                    {filledBlanks[blankIdx]}
+                    {isWrong && (
+                      <span className="dojo-correction">→ {currentRound.answers[blankIdx]}</span>
+                    )}
+                  </span>
+                )
+              } else if (blankIdx === activeBlank && !showResult) {
+                // Currently active blank
+                return (
+                  <span key={i} className="dojo-blank dojo-blank-active">
+                    ?
+                  </span>
+                )
+              } else {
+                // Future blank
                 return (
                   <span key={i} className="dojo-blank">
-                    {showResult ? currentRound.answers[blankIdx] : selected || '___'}
+                    ___
                   </span>
                 )
               }
-              return (
-                <span key={i} className="dojo-blank">
-                  {currentRound.answers[blankIdx]}
-                </span>
-              )
             }
             return (
               <span key={i} className="dojo-part">
@@ -1448,45 +1485,27 @@ function Slide11() {
           })}
         </div>
       </div>
-      {isSingleBlank && !showResult && (
+      {!showResult && (
         <div className="dojo-options">
           {currentRound.options.map((opt) => (
             <button
               key={opt}
               className="dojo-option-btn"
-              onClick={() => handleSelect(opt, 0)}
+              onClick={() => handleSelect(opt)}
             >
               {opt}
             </button>
           ))}
         </div>
       )}
-      {isSingleBlank && showResult && (
-        <div className={`dojo-feedback ${selected === currentRound.answers[0] ? 'correct' : 'incorrect'}`}>
+      {showResult && (
+        <div className={`dojo-feedback ${allCorrect ? 'correct' : 'incorrect'}`}>
           <p>
-            {selected === currentRound.answers[0]
-              ? `Correct! +${100 + Math.floor(timeLeft * 5)} points`
-              : `The answer was: ${currentRound.answers[0]}`}
+            {allCorrect
+              ? `All correct! +${correctCount * 100 + Math.floor(timeLeft * 5)} points`
+              : `${correctCount}/${totalBlanks} correct (+${correctCount * 100} points)`}
           </p>
           <button className="next-q-btn" onClick={nextRound}>
-            {round < rounds.length - 1 ? 'Next Round →' : 'See Results'}
-          </button>
-        </div>
-      )}
-      {!isSingleBlank && (
-        <div className="dojo-multi-note">
-          <p>This round has multiple blanks. Here are the answers:</p>
-          <p className="dojo-answers">
-            {currentRound.blanks.map((b, i) => (
-              <span key={i} className="dojo-answer-chip">
-                Blank {i + 1}: {currentRound.answers[i]}
-              </span>
-            ))}
-          </p>
-          <button className="next-q-btn" onClick={() => {
-            setScore(score + 100)
-            nextRound()
-          }}>
             {round < rounds.length - 1 ? 'Next Round →' : 'See Results'}
           </button>
         </div>
