@@ -1735,18 +1735,6 @@ export default function App() {
   const clickCountRef = useRef(0)
   const clickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const handleCounterClick = () => {
-    clickCountRef.current++
-    if (clickTimerRef.current) clearTimeout(clickTimerRef.current)
-    clickTimerRef.current = setTimeout(() => {
-      clickCountRef.current = 0
-    }, 2000)
-    if (clickCountRef.current >= 5) {
-      clickCountRef.current = 0
-      setShowInstructor(!showInstructor)
-    }
-  }
-
   // Password prompt
   const [passwordPrompt, setPasswordPrompt] = useState(false)
   const [passwordInput, setPasswordInput] = useState('')
