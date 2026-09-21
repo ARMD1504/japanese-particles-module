@@ -871,7 +871,7 @@ function Slide7() {
         </div>
       </div>
       <MCQ
-        question="Someone asks だれが きますか (dare ga kimasu ka — "Who is coming?"). Why must you use が and not は?"
+        question={`Someone asks だれが きますか (dare ga kimasu ka — "Who is coming?"). Why must you use が and not は?`}
         options={[
           { id: 'a', text: 'は is too formal for questions' },
           { id: 'b', text: 'Question words (だれ, なに, etc.) always take が, never は' },
@@ -983,7 +983,7 @@ function Slide8() {
         </div>
       </div>
       <MCQ
-        question="Which sentence correctly says "I study at the library"?"
+        question={`Which sentence correctly says "I study at the library"?`}
         options={[
           { id: 'a', text: 'としょかんに べんきょうします' },
           { id: 'b', text: 'としょかんで べんきょうします' },
